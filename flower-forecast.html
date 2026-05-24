@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>花屋 需要予測ツール</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+      background: #f5f7f0;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #4a7c59;
+      color: white;
+      padding: 16px 20px;
+      text-align: center;
+    }
+    header h1 { font-size: 1.3rem; letter-spacing: 0.05em; }
+    header p { font-size: 0.8rem; opacity: 0.8; margin-top: 4px; }
+
+    .container { max-width: 800px; margin: 0 auto; padding: 16px; }
+
+    /* タブ */
+    .tabs {
+      display: flex;
+      background: white;
+      border-radius: 10px 10px 0 0;
+      overflow: hidden;
+      margin-top: 16px;
+      border: 1px solid #dde8d8;
+      border-bottom: none;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 12px 8px;
+      border: none;
+      background: white;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #888;
+      font-weight: bold;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: #4a7c59;
+      border-bottom-color: #4a7c59;
+      background: #f9fdf7;
+    }
+    .tab-btn:hover:not(.active) { background: #f5f5f5; }
+
+    /* カード */
+    .card {
+      background: white;
+      border: 1px solid #dde8d8;
+      border-radius: 0 0 10px 10px;
+      padding: 20px;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: bold;
+      color: #4a7c59;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e8f0e5;
+    }
+
+    /* フォーム */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label { font-size: 0.82rem; color: #555; font-weight: bold; }
+    .form-group input,
+    .form-group select {
+      padding: 9px 12px;
+      border: 1px solid #cdd8c8;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      background: #fafff9;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #4a7c59;
+      background: white;
+    }
+
+    .btn-add {
+      width: 100%;
+      margin-top: 14px;
+      padding: 11px;
+      background: #4a7c59;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-add:hover { background: #3a6047; }
+
+    .msg-success {
+      text-align: center;
+      color: #4a7c59;
+      font-size: 0.9rem;
+      margin-top: 10px;
+      min-height: 20px;
+    }
+
+    /* フィルター */
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .filter-bar select, .filter-bar input {
+      padding: 7px 10px;
+      border: 1px solid #cdd8c8;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      background: #fafff9;
+    }
+    .filter-bar label { font-size: 0.82rem; color: #555; align-self: center; }
+
+    /* テーブル */
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    thead { background: #4a7c59; color: white; }
+    th { padding: 10px 8px; text-align: left; white-space: nowrap; }
+    td { padding: 9px 8px; border-bottom: 1px solid #e8f0e5; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f5fbf2; }
+
+    .rate-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+    .rate-high { background: #d4edda; color: #1a5e2a; }
+    .rate-mid  { background: #fff3cd; color: #856404; }
+    .rate-low  { background: #f8d7da; color: #721c24; }
+
+    .btn-del {
+      padding: 4px 10px;
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-del:hover { background: #c0392b; }
+
+    .empty-msg {
+      text-align: center;
+      color: #aaa;
+      padding: 30px;
+      font-size: 0.9rem;
+    }
+
+    /* 予測タブ */
+    .event-section { margin-bottom: 24px; }
+    .event-header {
+      background: #eaf3e5;
+      border-left: 4px solid #4a7c59;
+      padding: 8px 14px;
+      border-radius: 0 6px 6px 0;
+      font-weight: bold;
+      font-size: 0.95rem;
+      color: #3a5a40;
+      margin-bottom: 10px;
+    }
+
+    .forecast-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .forecast-card {
+      background: #fafff9;
+      border: 1px solid #dde8d8;
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .forecast-card .flower-name {
+      font-weight: bold;
+      font-size: 0.95rem;
+      margin-bottom: 8px;
+      color: #2d5a35;
+    }
+    .forecast-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      padding: 2px 0;
+      border-bottom: 1px dashed #e0eadb;
+    }
+    .forecast-row:last-child { border-bottom: none; }
+    .forecast-row .label { color: #777; }
+    .forecast-row .value { font-weight: bold; color: #333; }
+    .forecast-suggest {
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: #e8f5e9;
+      border-radius: 5px;
+      font-size: 0.82rem;
+      color: #2e7d32;
+    }
+
+    .no-forecast {
+      text-align: center;
+      color: #aaa;
+      padding: 20px;
+      font-size: 0.9rem;
+    }
+
+    /* タブコンテンツ */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* レスポンシブ */
+    @media (max-width: 500px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .form-group.full { grid-column: 1; }
+      th, td { padding: 7px 5px; font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🌸 花屋 需要予測ツール</h1>
+  <p>お盆・春彼岸・秋彼岸の仕入れ管理と予測</p>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('input')">📝 データ入力</button>
+    <button class="tab-btn" onclick="switchTab('list')">📋 一覧</button>
+    <button class="tab-btn" onclick="switchTab('forecast')">📊 予測ヒント</button>
+  </div>
+
+  <div class="card">
+
+    <!-- 入力タブ -->
+    <div id="tab-input" class="tab-content active">
+      <div class="section-title">販売データを記録する</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>年</label>
+          <input type="number" id="f-year" min="2000" max="2099" placeholder="例：2024">
+        </div>
+        <div class="form-group">
+          <label>イベント</label>
+          <select id="f-event">
+            <option value="">選択してください</option>
+            <option value="お盆">お盆</option>
+            <option value="春彼岸">春彼岸</option>
+            <option value="秋彼岸">秋彼岸</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>花の種類</label>
+          <input type="text" id="f-flower" placeholder="例：菊、リンドウ、ユリ">
+        </div>
+        <div class="form-group">
+          <label>仕入れ数（本）</label>
+          <input type="number" id="f-stock" min="0" placeholder="100">
+        </div>
+        <div class="form-group">
+          <label>売れた数（本）</label>
+          <input type="number" id="f-sold" min="0" placeholder="85">
+        </div>
+        <div class="form-group full">
+          <label>メモ（任意）</label>
+          <input type="text" id="f-memo" placeholder="例：台風の影響で客足少なめ">
+        </div>
+      </div>
+      <button class="btn-add" onclick="addRecord()">＋ 記録を追加</button>
+      <div class="msg-success" id="msg-success"></div>
+    </div>
+
+    <!-- 一覧タブ -->
+    <div id="tab-list" class="tab-content">
+      <div class="section-title">記録一覧</div>
+      <div class="filter-bar">
+        <label>絞り込み：</label>
+        <select id="filter-event" onchange="renderList()">
+          <option value="">すべてのイベント</option>
+          <option value="お盆">お盆</option>
+          <option value="春彼岸">春彼岸</option>
+          <option value="秋彼岸">秋彼岸</option>
+        </select>
+        <select id="filter-year" onchange="renderList()">
+          <option value="">すべての年</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>年</th>
+              <th>イベント</th>
+              <th>花の種類</th>
+              <th>仕入れ</th>
+              <th>売れた</th>
+              <th>売切れ率</th>
+              <th>メモ</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="list-body">
+          </tbody>
+        </table>
+        <div id="list-empty" class="empty-msg" style="display:none">データがありません</div>
+      </div>
+    </div>
+
+    <!-- 予測タブ -->
+    <div id="tab-forecast" class="tab-content">
+      <div class="section-title">予測ヒント（昨年データをもとに）</div>
+      <div id="forecast-content"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'flower_forecast_data';
+  const EVENTS = ['お盆', '春彼岸', '秋彼岸'];
+  const currentYear = new Date().getFullYear();
+
+  function loadData() {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  }
+
+  function saveData(data) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  function addRecord() {
+    const year   = parseInt(document.getElementById('f-year').value);
+    const event  = document.getElementById('f-event').value;
+    const flower = document.getElementById('f-flower').value.trim();
+    const stock  = parseInt(document.getElementById('f-stock').value);
+    const sold   = parseInt(document.getElementById('f-sold').value);
+    const memo   = document.getElementById('f-memo').value.trim();
+
+    if (!year || !event || !flower || isNaN(stock) || isNaN(sold)) {
+      alert('年・イベント・花の種類・仕入れ数・売れた数をすべて入力してください。');
+      return;
+    }
+    if (sold > stock) {
+      alert('売れた数が仕入れ数を超えています。');
+      return;
+    }
+
+    const data = loadData();
+    data.push({ id: Date.now(), year, event, flower, stock, sold, memo });
+    saveData(data);
+
+    document.getElementById('f-flower').value = '';
+    document.getElementById('f-stock').value  = '';
+    document.getElementById('f-sold').value   = '';
+    document.getElementById('f-memo').value   = '';
+
+    showMsg('✅ 記録を追加しました！');
+    updateYearFilter();
+  }
+
+  function showMsg(text) {
+    const el = document.getElementById('msg-success');
+    el.textContent = text;
+    setTimeout(() => el.textContent = '', 2500);
+  }
+
+  function deleteRecord(id) {
+    if (!confirm('この記録を削除しますか？')) return;
+    const data = loadData().filter(r => r.id !== id);
+    saveData(data);
+    renderList();
+    updateYearFilter();
+  }
+
+  function calcRate(stock, sold) {
+    if (!stock) return null;
+    return Math.round((sold / stock) * 100);
+  }
+
+  function rateBadge(rate) {
+    if (rate === null) return '-';
+    let cls = rate >= 90 ? 'rate-high' : rate >= 70 ? 'rate-mid' : 'rate-low';
+    return `<span class="rate-badge ${cls}">${rate}%</span>`;
+  }
+
+  function renderList() {
+    const filterEvent = document.getElementById('filter-event').value;
+    const filterYear  = document.getElementById('filter-year').value;
+    let data = loadData();
+
+    if (filterEvent) data = data.filter(r => r.event === filterEvent);
+    if (filterYear)  data = data.filter(r => r.year === parseInt(filterYear));
+
+    data.sort((a, b) => b.year - a.year || a.event.localeCompare(b.event));
+
+    const tbody = document.getElementById('list-body');
+    const empty = document.getElementById('list-empty');
+
+    if (data.length === 0) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    tbody.innerHTML = data.map(r => {
+      const rate = calcRate(r.stock, r.sold);
+      return `<tr>
+        <td>${r.year}</td>
+        <td>${r.event}</td>
+        <td>${r.flower}</td>
+        <td>${r.stock.toLocaleString()}本</td>
+        <td>${r.sold.toLocaleString()}本</td>
+        <td>${rateBadge(rate)}</td>
+        <td style="color:#888;font-size:0.82rem">${r.memo || '-'}</td>
+        <td><button class="btn-del" onclick="deleteRecord(${r.id})">削除</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function updateYearFilter() {
+    const data = loadData();
+    const years = [...new Set(data.map(r => r.year))].sort((a, b) => b - a);
+    const sel = document.getElementById('filter-year');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">すべての年</option>' +
+      years.map(y => `<option value="${y}" ${y == cur ? 'selected' : ''}>${y}年</option>`).join('');
+  }
+
+  function renderForecast() {
+    const data = loadData();
+    const el = document.getElementById('forecast-content');
+
+    if (data.length === 0) {
+      el.innerHTML = '<div class="no-forecast">データを入力すると予測ヒントが表示されます。</div>';
+      return;
+    }
+
+    let html = '';
+    EVENTS.forEach(event => {
+      const thisYear = data.filter(r => r.event === event && r.year === currentYear);
+      const lastYear = data.filter(r => r.event === event && r.year === currentYear - 1);
+      const allYears = data.filter(r => r.event === event);
+
+      if (allYears.length === 0) return;
+
+      // 花の種類一覧（全年度）
+      const flowers = [...new Set(allYears.map(r => r.flower))];
+
+      html += `<div class="event-section">
+        <div class="event-header">🌼 ${event}</div>
+        <div class="forecast-grid">`;
+
+      flowers.forEach(flower => {
+        const ty = thisYear.find(r => r.flower === flower);
+        const ly = lastYear.find(r => r.flower === flower);
+        const all = allYears.filter(r => r.flower === flower);
+
+        // 平均売切れ率
+        const rates = all.map(r => calcRate(r.stock, r.sold)).filter(v => v !== null);
+        const avgRate = rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null;
+
+        // 推奨仕入れ数（昨年売れた数 ÷ 平均売切れ率）
+        let suggest = null;
+        if (ly && avgRate) {
+          suggest = Math.ceil(ly.sold / (avgRate / 100));
+        }
+
+        html += `<div class="forecast-card">
+          <div class="flower-name">🌸 ${flower}</div>`;
+
+        if (ly) {
+          html += `<div class="forecast-row">
+            <span class="label">昨年仕入れ</span>
+            <span class="value">${ly.stock.toLocaleString()}本</span>
+          </div>
+          <div class="forecast-row">
+            <span class="label">昨年売れた</span>
+            <span class="value">${ly.sold.toLocaleString()}本</span>
+          </div>
+          <div class="forecast-row">
+            <span class="label">昨年売切れ率</span>
+            <span class="value">${rateBadge(calcRate(ly.stock, ly.sold))}</span>
+          </div>`;
+        } else {
+          html += `<div class="forecast-row"><span class="label" style="color:#aaa">昨年データなし</span></div>`;
+        }
+
+        if (ty) {
+          html += `<div class="forecast-row" style="margin-top:4px;background:#fff9e6;border-radius:4px;padding:3px 6px">
+            <span class="label">今年仕入れ</span>
+            <span class="value">${ty.stock.toLocaleString()}本</span>
+          </div>`;
+        }
+
+        if (avgRate !== null) {
+          html += `<div class="forecast-row">
+            <span class="label">平均売切れ率</span>
+            <span class="value">${rateBadge(avgRate)}</span>
+          </div>`;
+        }
+
+        if (suggest) {
+          html += `<div class="forecast-suggest">
+            💡 推奨仕入れ：約 <strong>${suggest.toLocaleString()}本</strong><br>
+            <span style="font-size:0.78rem;opacity:0.8">（昨年の売れ数÷平均売切れ率）</span>
+          </div>`;
+        }
+
+        html += `</div>`;
+      });
+
+      html += `</div></div>`;
+    });
+
+    el.innerHTML = html || '<div class="no-forecast">まだ予測できるデータがありません。</div>';
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+      b.classList.toggle('active', ['input','list','forecast'][i] === name);
+    });
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'list')     renderList();
+    if (name === 'forecast') renderForecast();
+  }
+
+  // 初期化
+  (function init() {
+    const yearInput = document.getElementById('f-year');
+    yearInput.value = currentYear;
+    updateYearFilter();
+  })();
+</script>
+</body>
+</html>
