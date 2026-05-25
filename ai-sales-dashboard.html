@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI画像販売ダッシュボード</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1b2a;
+      --surface: #1a2f4a;
+      --card: #1e3a5f;
+      --input-bg: #152338;
+      --border: #2a4a6b;
+      --border2: #3a5a7b;
+      --text: #e8f4fd;
+      --text2: #a8c5da;
+      --muted: #6a8fa8;
+      --accent: #00d4aa;
+      --accent-dk: #00a882;
+      --accent-lt: #4de6c5;
+      --blue: #1e7fd4;
+      --success: #00c896;
+      --warn: #ffa94d;
+      --danger: #ff6b6b;
+      --purple: #9b7fe8;
+      --r: 12px;
+      --rs: 8px;
+      --shadow: 0 4px 24px rgba(0,0,0,.45);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,.3);
+      --tr: .18s ease;
+    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.6; }
+
+    /* ── Header ── */
+    .hdr { background: linear-gradient(135deg,#0d2137,#1a3a5c); border-bottom: 1px solid var(--border); padding: 0 24px; height: 62px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
+    .hdr-logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 38px; height: 38px; background: linear-gradient(135deg,var(--accent),var(--blue)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .logo-text { font-size: 17px; font-weight: 700; background: linear-gradient(135deg,var(--accent-lt),var(--text)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hdr-date { color: var(--muted); font-size: 12px; }
+
+    /* ── Tab Nav ── */
+    .tab-nav { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 0 20px; gap: 2px; overflow-x: auto; }
+    .tab-btn { padding: 13px 18px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500; position: relative; white-space: nowrap; transition: color var(--tr); display: flex; align-items: center; gap: 7px; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); }
+    .tab-btn.active::after { content:''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg,var(--accent),var(--blue)); border-radius: 2px 2px 0 0; }
+
+    /* ── Main ── */
+    .main { padding: 22px; max-width: 1200px; margin: 0 auto; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ── Cards ── */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; box-shadow: var(--shadow-sm); }
+    .card + .card, .card + .two-col, .two-col + .card { margin-top: 20px; }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+    /* ── Stat Grid ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 14px; margin-bottom: 20px; }
+    .stat-card { background: linear-gradient(135deg,var(--card),var(--surface)); border: 1px solid var(--border); border-radius: var(--r); padding: 18px; position: relative; overflow: hidden; }
+    .stat-card::before { content:''; position: absolute; top:0; left:0; right:0; height:3px; border-radius: var(--r) var(--r) 0 0; }
+    .stat-card.c-green::before { background: linear-gradient(90deg,var(--success),var(--accent)); }
+    .stat-card.c-blue::before  { background: linear-gradient(90deg,var(--blue),#4fa8e8); }
+    .stat-card.c-orange::before{ background: linear-gradient(90deg,var(--warn),#ffcc88); }
+    .stat-card.c-purple::before{ background: linear-gradient(90deg,var(--purple),#c3a8f5); }
+    .stat-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+    .stat-val { font-size: 26px; font-weight: 700; line-height: 1; }
+    .stat-ico { position: absolute; top:14px; right:14px; font-size: 22px; opacity: .25; }
+
+    /* ── Forms ── */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 12px; }
+    .fg { display: flex; flex-direction: column; gap: 5px; }
+    .fg.full { grid-column: 1/-1; }
+    label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+    input, select, textarea { background: var(--input-bg); border: 1px solid var(--border); border-radius: var(--rs); color: var(--text); padding: 9px 11px; font-size: 13px; font-family: inherit; transition: border-color var(--tr), box-shadow var(--tr); outline: none; width: 100%; }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,212,170,.14); }
+    textarea { resize: vertical; min-height: 76px; }
+    select option { background: var(--surface); }
+    .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+
+    /* ── Buttons ── */
+    .btn { padding: 9px 16px; border: none; border-radius: var(--rs); cursor: pointer; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; transition: all var(--tr); letter-spacing: .2px; }
+    .btn-primary { background: linear-gradient(135deg,var(--accent),var(--accent-dk)); color: #0d1b2a; }
+    .btn-primary:hover { background: linear-gradient(135deg,var(--accent-lt),var(--accent)); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,212,170,.35); }
+    .btn-danger { background: rgba(255,107,107,.15); color: var(--danger); border: 1px solid rgba(255,107,107,.3); }
+    .btn-danger:hover { background: rgba(255,107,107,.25); }
+    .btn-sm { padding: 5px 11px; font-size: 12px; }
+
+    /* ── Badge / Tag ── */
+    .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .b-listing { background: rgba(0,212,170,.14); color: var(--accent); border: 1px solid rgba(0,212,170,.28); }
+    .b-sold    { background: rgba(30,127,212,.14); color: var(--blue); border: 1px solid rgba(30,127,212,.28); }
+    .b-stock   { background: rgba(255,169,77,.14); color: var(--warn); border: 1px solid rgba(255,169,77,.28); }
+    .tag { background: rgba(0,212,170,.1); color: var(--accent); border: 1px solid rgba(0,212,170,.2); padding: 2px 7px; border-radius: 4px; font-size: 11px; display: inline-block; }
+
+    /* ── Table ── */
+    .tbl-wrap { overflow-x: auto; border-radius: var(--rs); }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: var(--surface); padding: 9px 13px; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); }
+    td { padding: 11px 13px; border-bottom: 1px solid rgba(42,74,107,.45); font-size: 13px; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+
+    /* ── Section header ── */
+    .sec-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .sec-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+
+    /* ── Status inline select ── */
+    .sel-status { padding: 4px 8px; font-size: 12px; border-radius: 6px; width: auto; }
+
+    /* ── Stars ── */
+    .stars-display { color: var(--warn); letter-spacing: 2px; }
+    .star-input { display: flex; gap: 4px; }
+    .star-input span { font-size: 22px; cursor: pointer; color: var(--border2); transition: color var(--tr); user-select: none; }
+    .star-input span.on { color: var(--warn); }
+
+    /* ── Search ── */
+    .search-wrap { position: relative; margin-bottom: 14px; }
+    .search-ico { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+    .search-input { padding-left: 36px !important; }
+
+    /* ── Prompt Cards ── */
+    .prompt-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(300px,1fr)); gap: 14px; }
+    .p-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 15px; transition: border-color var(--tr); }
+    .p-card:hover { border-color: var(--accent); }
+    .p-card-hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .p-name { font-size: 14px; font-weight: 600; }
+    .p-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 7px 0; }
+    .p-body { color: var(--text2); font-size: 12px; line-height: 1.55; background: var(--input-bg); border-radius: var(--rs); padding: 9px; margin: 7px 0; max-height: 72px; overflow-y: auto; font-family: 'Consolas','Courier New',monospace; }
+    .p-memo { color: var(--muted); font-size: 12px; margin-top: 7px; }
+    .p-date { color: var(--muted); font-size: 11px; margin-top: 6px; }
+
+    /* ── Two-col layout ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+    /* ── Chart ── */
+    .chart-wrap { position: relative; width: 100%; margin-top: 8px; }
+    canvas { display: block; width: 100% !important; }
+
+    /* ── Genre breakdown ── */
+    .genre-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(170px,1fr)); gap: 10px; margin-top: 12px; }
+    .g-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--rs); padding: 13px; }
+    .g-name { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+    .g-amt  { font-size: 19px; font-weight: 700; color: var(--accent); }
+    .g-cnt  { font-size: 11px; color: var(--muted); }
+    .prog { height: 4px; background: var(--border); border-radius: 2px; margin-top: 7px; overflow: hidden; }
+    .prog-fill { height: 100%; background: linear-gradient(90deg,var(--accent),var(--blue)); border-radius: 2px; transition: width .6s ease; }
+
+    /* ── Empty ── */
+    .empty { text-align: center; padding: 44px 20px; color: var(--muted); }
+    .empty-ico { font-size: 44px; opacity: .35; margin-bottom: 10px; }
+
+    /* ── Toast ── */
+    .toast { position: fixed; bottom: 22px; right: 22px; background: var(--card); border: 1px solid var(--accent); border-radius: var(--rs); padding: 11px 18px; color: var(--text); font-size: 13px; z-index: 9999; box-shadow: var(--shadow); animation: toastIn .25s ease, toastOut .25s ease 2.75s forwards; }
+    @keyframes toastIn  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes toastOut { to   { opacity:0; transform:translateY(-10px); } }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 800px) {
+      .two-col { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2,1fr); }
+    }
+    @media (max-width: 500px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .main { padding: 14px; }
+      .hdr { padding: 0 14px; }
+      .prompt-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-logo">
+    <div class="logo-icon">🎨</div>
+    <span class="logo-text">AI画像販売ダッシュボード</span>
+  </div>
+  <div class="hdr-date" id="hdrDate"></div>
+</header>
+
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('dashboard')">📊 ダッシュボード</button>
+  <button class="tab-btn" onclick="switchTab('listings')">🏪 ヤフオク出品管理</button>
+  <button class="tab-btn" onclick="switchTab('prompts')">💡 プロンプト管理</button>
+  <button class="tab-btn" onclick="switchTab('sales')">📈 売上トラッカー</button>
+</nav>
+
+<main class="main">
+
+  <!-- ══════════ DASHBOARD ══════════ -->
+  <div id="tab-dashboard" class="tab-pane active">
+    <div class="stats-grid">
+      <div class="stat-card c-green">
+        <div class="stat-lbl">今月の売上合計</div>
+        <div class="stat-val" id="s-monthly-amt">¥0</div>
+        <div class="stat-ico">💴</div>
+      </div>
+      <div class="stat-card c-blue">
+        <div class="stat-lbl">今月の売れた件数</div>
+        <div class="stat-val" id="s-monthly-cnt">0</div>
+        <div class="stat-ico">✅</div>
+      </div>
+      <div class="stat-card c-orange">
+        <div class="stat-lbl">出品中の件数</div>
+        <div class="stat-val" id="s-listing-cnt">0</div>
+        <div class="stat-ico">🏷️</div>
+      </div>
+      <div class="stat-card c-purple">
+        <div class="stat-lbl">登録プロンプト数</div>
+        <div class="stat-val" id="s-prompt-cnt">0</div>
+        <div class="stat-ico">💡</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🕒 直近5件の売上履歴</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>日付</th><th>タイトル</th><th>ジャンル</th><th>金額</th></tr></thead>
+          <tbody id="recent-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ LISTINGS ══════════ -->
+  <div id="tab-listings" class="tab-pane">
+    <div class="card">
+      <div class="card-title">➕ 出品を追加</div>
+      <form id="listing-form" onsubmit="addListing(event)">
+        <div class="form-grid">
+          <div class="fg">
+            <label for="l-title">画像タイトル</label>
+            <input id="l-title" type="text" placeholder="例: 幻想的な森の風景" required>
+          </div>
+          <div class="fg">
+            <label for="l-genre">ジャンル</label>
+            <select id="l-genre" required><option value="">選択してください</option>
+              <option>風景・自然</option><option>キャラクター</option><option>抽象・アート</option>
+              <option>建築・都市</option><option>動物</option><option>食べ物</option>
+              <option>ファンタジー</option><option>ポートレート</option><option>その他</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label for="l-price">出品価格（円）</label>
+            <input id="l-price" type="number" placeholder="500" min="1" required>
+          </div>
+          <div class="fg">
+            <label for="l-status">ステータス</label>
+            <select id="l-status">
+              <option value="出品中">出品中</option>
+              <option value="売れた">売れた</option>
+              <option value="在庫">在庫</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">➕ 追加</button></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="sec-hdr">
+        <div class="sec-title">📋 出品一覧</div>
+        <span id="listing-cnt-lbl" style="color:var(--muted);font-size:12px"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>タイトル</th><th>ジャンル</th><th>出品価格</th><th>ステータス</th><th>登録日</th><th>操作</th></tr></thead>
+          <tbody id="listings-body"></tbody>
+        </table>
+      </div>
+      <div id="listings-empty" class="empty" style="display:none">
+        <div class="empty-ico">🖼️</div><p>まだ出品がありません</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ PROMPTS ══════════ -->
+  <div id="tab-prompts" class="tab-pane">
+    <div class="card">
+      <div class="card-title">➕ プロンプトを追加</div>
+      <form id="prompt-form" onsubmit="addPrompt(event)">
+        <div class="form-grid">
+          <div class="fg">
+            <label for="p-name">プロンプト名</label>
+            <input id="p-name" type="text" placeholder="例: 幻想的な森プロンプト" required>
+          </div>
+          <div class="fg">
+            <label for="p-tags">タグ（カンマ区切り）</label>
+            <input id="p-tags" type="text" placeholder="例: 風景, ファンタジー, 青">
+          </div>
+          <div class="fg">
+            <label>評価</label>
+            <div class="star-input" id="star-inp">
+              <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span>
+              <span data-v="4">★</span><span data-v="5">★</span>
+            </div>
+            <input type="hidden" id="p-rating" value="3">
+          </div>
+          <div class="fg full">
+            <label for="p-content">プロンプト内容</label>
+            <textarea id="p-content" rows="3" placeholder="プロンプトを入力..." required></textarea>
+          </div>
+          <div class="fg full">
+            <label for="p-memo">メモ</label>
+            <input id="p-memo" type="text" placeholder="使い方のメモなど">
+          </div>
+        </div>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">➕ 追加</button></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="sec-hdr">
+        <div class="sec-title">💡 プロンプト一覧</div>
+        <span id="prompt-cnt-lbl" style="color:var(--muted);font-size:12px"></span>
+      </div>
+      <div class="search-wrap">
+        <span class="search-ico">🔍</span>
+        <input class="search-input" id="p-search" type="text" placeholder="名前・タグ・内容で検索..." oninput="renderPrompts()">
+      </div>
+      <div id="prompt-grid" class="prompt-grid"></div>
+      <div id="prompts-empty" class="empty" style="display:none">
+        <div class="empty-ico">💡</div><p>まだプロンプトがありません</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ SALES TRACKER ══════════ -->
+  <div id="tab-sales" class="tab-pane">
+    <div class="card">
+      <div class="card-title">➕ 売上を登録</div>
+      <form id="sales-form" onsubmit="addSale(event)">
+        <div class="form-grid">
+          <div class="fg">
+            <label for="s-date">日付</label>
+            <input id="s-date" type="date" required>
+          </div>
+          <div class="fg">
+            <label for="s-title">画像タイトル</label>
+            <input id="s-title" type="text" placeholder="例: 幻想的な森の風景" required>
+          </div>
+          <div class="fg">
+            <label for="s-amount">金額（円）</label>
+            <input id="s-amount" type="number" placeholder="500" min="1" required>
+          </div>
+          <div class="fg">
+            <label for="s-genre">ジャンル</label>
+            <select id="s-genre" required><option value="">選択してください</option>
+              <option>風景・自然</option><option>キャラクター</option><option>抽象・アート</option>
+              <option>建築・都市</option><option>動物</option><option>食べ物</option>
+              <option>ファンタジー</option><option>ポートレート</option><option>その他</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">💰 登録</button></div>
+      </form>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📊 月別売上グラフ（直近6ヶ月）</div>
+        <div class="chart-wrap"><canvas id="chart" height="240"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🏷️ ジャンル別売上集計</div>
+        <div id="genre-breakdown"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-hdr">
+        <div class="sec-title">📋 売上履歴</div>
+        <span id="sales-cnt-lbl" style="color:var(--muted);font-size:12px"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>日付</th><th>タイトル</th><th>ジャンル</th><th>金額</th><th>操作</th></tr></thead>
+          <tbody id="sales-body"></tbody>
+        </table>
+      </div>
+      <div id="sales-empty" class="empty" style="display:none">
+        <div class="empty-ico">📈</div><p>まだ売上がありません</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ═══════════ STORAGE ═══════════
+const K = { L:'ai_listings', P:'ai_prompts', S:'ai_sales' };
+const get = k => { try { return JSON.parse(localStorage.getItem(k)||'[]'); } catch { return []; } };
+const set = (k,v) => localStorage.setItem(k, JSON.stringify(v));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+
+// ═══════════ UTILS ═══════════
+const yen = n => '¥' + Number(n).toLocaleString('ja-JP');
+const fmtD = d => d ? d.replace(/-/g,'/') : '';
+const today = () => new Date().toISOString().slice(0,10);
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3100);
+}
+
+// ═══════════ TABS ═══════════
+const TAB_IDX = { dashboard:0, listings:1, prompts:2, sales:3 };
+function switchTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(e => e.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelectorAll('.tab-btn')[TAB_IDX[name]].classList.add('active');
+  if (name==='dashboard') renderDashboard();
+  if (name==='listings')  renderListings();
+  if (name==='prompts')   renderPrompts();
+  if (name==='sales')     { renderSales(); drawChart(); renderGenre(); }
+}
+
+// ═══════════ DASHBOARD ═══════════
+function renderDashboard() {
+  const sales = get(K.S), listings = get(K.L), prompts = get(K.P);
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const ms = sales.filter(s => s.date && s.date.startsWith(ym));
+  document.getElementById('s-monthly-amt').textContent = yen(ms.reduce((a,s)=>a+Number(s.amount),0));
+  document.getElementById('s-monthly-cnt').textContent = ms.length;
+  document.getElementById('s-listing-cnt').textContent = listings.filter(l=>l.status==='出品中').length;
+  document.getElementById('s-prompt-cnt').textContent  = prompts.length;
+
+  const recent = [...sales].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+  const tb = document.getElementById('recent-body');
+  tb.innerHTML = recent.length ? recent.map(s=>`
+    <tr>
+      <td>${fmtD(s.date)}</td>
+      <td style="font-weight:500">${s.title}</td>
+      <td><span class="tag">${s.genre}</span></td>
+      <td style="color:var(--accent);font-weight:700">${yen(s.amount)}</td>
+    </tr>`).join('') :
+    '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:30px">売上データがありません</td></tr>';
+}
+
+// ═══════════ LISTINGS ═══════════
+function statusBadge(st) {
+  if (st==='出品中') return `<span class="badge b-listing">出品中</span>`;
+  if (st==='売れた') return `<span class="badge b-sold">売れた</span>`;
+  return `<span class="badge b-stock">在庫</span>`;
+}
+
+function addListing(e) {
+  e.preventDefault();
+  const item = { id:uid(), title:document.getElementById('l-title').value.trim(),
+    genre:document.getElementById('l-genre').value, price:Number(document.getElementById('l-price').value),
+    status:document.getElementById('l-status').value, date:today() };
+  const ls = get(K.L); ls.unshift(item); set(K.L,ls);
+  e.target.reset(); renderListings(); renderDashboard(); toast('✅ 出品を追加しました');
+}
+
+function updateStatus(id, st) {
+  const ls = get(K.L), it = ls.find(l=>l.id===id);
+  if (it) it.status = st; set(K.L,ls); renderListings(); renderDashboard();
+}
+
+function deleteListing(id) {
+  if (!confirm('この出品を削除しますか？')) return;
+  set(K.L, get(K.L).filter(l=>l.id!==id));
+  renderListings(); renderDashboard(); toast('🗑️ 削除しました');
+}
+
+function renderListings() {
+  const ls = get(K.L);
+  document.getElementById('listing-cnt-lbl').textContent = `全${ls.length}件`;
+  const tb = document.getElementById('listings-body');
+  const em = document.getElementById('listings-empty');
+  if (!ls.length) { tb.innerHTML=''; em.style.display=''; return; }
+  em.style.display='none';
+  tb.innerHTML = ls.map(l=>`
+    <tr>
+      <td style="font-weight:500">${l.title}</td>
+      <td><span class="tag">${l.genre}</span></td>
+      <td style="color:var(--accent);font-weight:700">${yen(l.price)}</td>
+      <td>
+        <select class="sel-status" onchange="updateStatus('${l.id}',this.value)">
+          <option${l.status==='出品中'?' selected':''}>出品中</option>
+          <option${l.status==='売れた'?' selected':''}>売れた</option>
+          <option${l.status==='在庫'?' selected':''}>在庫</option>
+        </select>
+      </td>
+      <td style="color:var(--muted)">${fmtD(l.date)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteListing('${l.id}')">🗑️</button></td>
+    </tr>`).join('');
+}
+
+// ═══════════ PROMPTS ═══════════
+let starVal = 3;
+function initStars() {
+  const wrap = document.getElementById('star-inp');
+  const inp  = document.getElementById('p-rating');
+  const stars = wrap.querySelectorAll('span');
+  function paint(n) { stars.forEach(s => s.classList.toggle('on', Number(s.dataset.v)<=n)); }
+  paint(starVal);
+  stars.forEach(s => {
+    s.addEventListener('mouseenter', () => paint(Number(s.dataset.v)));
+    s.addEventListener('mouseleave', () => paint(starVal));
+    s.addEventListener('click', () => { starVal=Number(s.dataset.v); inp.value=starVal; paint(starVal); });
+  });
+}
+
+function addPrompt(e) {
+  e.preventDefault();
+  const item = { id:uid(), name:document.getElementById('p-name').value.trim(),
+    content:document.getElementById('p-content').value.trim(),
+    tags:document.getElementById('p-tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+    rating:Number(document.getElementById('p-rating').value),
+    memo:document.getElementById('p-memo').value.trim(), date:today() };
+  const ps = get(K.P); ps.unshift(item); set(K.P,ps);
+  e.target.reset(); starVal=3; document.getElementById('p-rating').value=3;
+  document.getElementById('star-inp').querySelectorAll('span').forEach(s=>s.classList.toggle('on',Number(s.dataset.v)<=3));
+  renderPrompts(); renderDashboard(); toast('✅ プロンプトを追加しました');
+}
+
+function deletePrompt(id) {
+  if (!confirm('このプロンプトを削除しますか？')) return;
+  set(K.P, get(K.P).filter(p=>p.id!==id));
+  renderPrompts(); renderDashboard(); toast('🗑️ 削除しました');
+}
+
+function renderPrompts() {
+  const ps = get(K.P);
+  const q  = document.getElementById('p-search').value.toLowerCase();
+  const filtered = q ? ps.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    p.content.toLowerCase().includes(q) ||
+    p.tags.some(t=>t.toLowerCase().includes(q))) : ps;
+  document.getElementById('prompt-cnt-lbl').textContent = `全${ps.length}件`;
+  const grid = document.getElementById('prompt-grid');
+  const em   = document.getElementById('prompts-empty');
+  if (!filtered.length) { grid.innerHTML=''; em.style.display=''; return; }
+  em.style.display='none';
+  grid.innerHTML = filtered.map(p=>`
+    <div class="p-card">
+      <div class="p-card-hdr">
+        <div class="p-name">${p.name}</div>
+        <button class="btn btn-danger btn-sm" onclick="deletePrompt('${p.id}')">🗑️</button>
+      </div>
+      <div class="stars-display">${'★'.repeat(p.rating)}${'☆'.repeat(5-p.rating)}</div>
+      <div class="p-tags">${p.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      <div class="p-body">${p.content}</div>
+      ${p.memo?`<div class="p-memo">📝 ${p.memo}</div>`:''}
+      <div class="p-date">${fmtD(p.date)}</div>
+    </div>`).join('');
+}
+
+// ═══════════ SALES ═══════════
+function addSale(e) {
+  e.preventDefault();
+  const item = { id:uid(), date:document.getElementById('s-date').value,
+    title:document.getElementById('s-title').value.trim(),
+    amount:Number(document.getElementById('s-amount').value),
+    genre:document.getElementById('s-genre').value };
+  const ss = get(K.S); ss.unshift(item); set(K.S,ss);
+  e.target.reset(); document.getElementById('s-date').value = today();
+  renderSales(); drawChart(); renderGenre(); renderDashboard(); toast('💰 売上を登録しました');
+}
+
+function deleteSale(id) {
+  if (!confirm('この売上を削除しますか？')) return;
+  set(K.S, get(K.S).filter(s=>s.id!==id));
+  renderSales(); drawChart(); renderGenre(); renderDashboard(); toast('🗑️ 削除しました');
+}
+
+function renderSales() {
+  const ss = [...get(K.S)].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  document.getElementById('sales-cnt-lbl').textContent = `全${ss.length}件`;
+  const tb = document.getElementById('sales-body');
+  const em = document.getElementById('sales-empty');
+  if (!ss.length) { tb.innerHTML=''; em.style.display=''; return; }
+  em.style.display='none';
+  tb.innerHTML = ss.map(s=>`
+    <tr>
+      <td>${fmtD(s.date)}</td>
+      <td style="font-weight:500">${s.title}</td>
+      <td><span class="tag">${s.genre}</span></td>
+      <td style="color:var(--accent);font-weight:700">${yen(s.amount)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteSale('${s.id}')">🗑️</button></td>
+    </tr>`).join('');
+}
+
+// ═══════════ CHART ═══════════
+function drawChart() {
+  const cvs = document.getElementById('chart');
+  const ctx = cvs.getContext('2d');
+  const W = cvs.parentElement.offsetWidth || 400;
+  cvs.width = W; cvs.height = 240;
+
+  const sales = get(K.S);
+  const now = new Date();
+  const months = Array.from({length:6},(_,i)=>{
+    const d = new Date(now.getFullYear(), now.getMonth()-5+i, 1);
+    return { key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, lbl:`${d.getMonth()+1}月` };
+  });
+  const data = months.map(m=>({
+    lbl: m.lbl,
+    total: sales.filter(s=>s.date&&s.date.startsWith(m.key)).reduce((a,s)=>a+Number(s.amount),0)
+  }));
+
+  const maxV = Math.max(...data.map(d=>d.total), 1);
+  const PL=52, PR=16, PT=24, PB=36;
+  const cW = W-PL-PR, cH = cvs.height-PT-PB;
+
+  ctx.clearRect(0,0,W,cvs.height);
+
+  // Grid lines + Y labels
+  for (let i=0;i<=4;i++) {
+    const v = maxV/4*i;
+    const y = PT+cH - cH*i/4;
+    ctx.fillStyle='#6a8fa8'; ctx.font='10px Segoe UI,sans-serif'; ctx.textAlign='right';
+    ctx.fillText(v>=1000 ? Math.round(v/1000)+'k' : Math.round(v), PL-6, y+4);
+    ctx.strokeStyle='rgba(42,74,107,.4)'; ctx.lineWidth=1; ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(PL+cW,y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Bars
+  const bW = (cW/6)*0.55;
+  const gap = cW/6;
+  data.forEach((d,i)=>{
+    const x = PL + gap*i + (gap-bW)/2;
+    const bH = Math.max(cH*(d.total/maxV), d.total>0?2:0);
+    const y  = PT+cH-bH;
+    const r  = Math.min(5, bH/2);
+
+    const g = ctx.createLinearGradient(0,y,0,PT+cH);
+    g.addColorStop(0,'#00d4aa'); g.addColorStop(1,'rgba(0,212,170,.25)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    if (bH > 0) {
+      ctx.moveTo(x+r,y); ctx.lineTo(x+bW-r,y);
+      ctx.quadraticCurveTo(x+bW,y,x+bW,y+r);
+      ctx.lineTo(x+bW,PT+cH); ctx.lineTo(x,PT+cH); ctx.lineTo(x,y+r);
+      ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+      ctx.fill();
+    }
+    if (d.total>0) {
+      ctx.fillStyle='#e8f4fd'; ctx.font='bold 10px Segoe UI,sans-serif'; ctx.textAlign='center';
+      ctx.fillText(d.total>=1000?Math.round(d.total/1000)+'k':d.total, x+bW/2, y-5);
+    }
+    ctx.fillStyle='#6a8fa8'; ctx.font='11px Segoe UI,sans-serif'; ctx.textAlign='center';
+    ctx.fillText(d.lbl, x+bW/2, PT+cH+18);
+  });
+}
+
+// ═══════════ GENRE ═══════════
+function renderGenre() {
+  const sales = get(K.S);
+  const map = {};
+  sales.forEach(s => {
+    if (!map[s.genre]) map[s.genre]={total:0,count:0};
+    map[s.genre].total += Number(s.amount);
+    map[s.genre].count++;
+  });
+  const sorted = Object.entries(map).sort((a,b)=>b[1].total-a[1].total);
+  const maxAmt = sorted[0]?.[1]?.total || 1;
+  const el = document.getElementById('genre-breakdown');
+  if (!sorted.length) {
+    el.innerHTML='<div class="empty"><div class="empty-ico">🏷️</div><p>売上データがありません</p></div>';
+    return;
+  }
+  el.innerHTML = `<div class="genre-grid">${sorted.map(([g,d])=>`
+    <div class="g-item">
+      <div class="g-name">${g}</div>
+      <div class="g-amt">${yen(d.total)}</div>
+      <div class="g-cnt">${d.count}件</div>
+      <div class="prog"><div class="prog-fill" style="width:${Math.round(d.total/maxAmt*100)}%"></div></div>
+    </div>`).join('')}</div>`;
+}
+
+// ═══════════ INIT ═══════════
+function init() {
+  const now = new Date();
+  document.getElementById('hdrDate').textContent =
+    `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${['日','月','火','水','木','金','土'][now.getDay()]}）`;
+  document.getElementById('s-date').value = today();
+  initStars();
+  renderDashboard();
+  window.addEventListener('resize', () => {
+    if (document.getElementById('tab-sales').classList.contains('active')) drawChart();
+  });
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
