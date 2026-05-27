@@ -6,9 +6,18 @@
   <style>
     body {
       background-color: #f0f0f0;
+      font-family: sans-serif;
+      padding: 20px;
     }
     h1 {
       color: green;
+    }
+    input[type="number"] {
+      padding: 8px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      width: 200px;
     }
     button {
       background-color: green;
@@ -17,14 +26,54 @@
       border-radius: 8px;
       padding: 8px 20px;
       cursor: pointer;
+      margin-left: 8px;
+      font-size: 1rem;
+    }
+    button:hover {
+      background-color: #005500;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 1.2rem;
+      color: #333;
     }
   </style>
 </head>
 <body>
   <h1>はじめてのHTML</h1>
   <p>これはテストです</p>
-  <button onclick="alert('売上を記録しました！')">クリック</button>
+
   <h2>今日の売上</h2>
-  <p>¥500</p>
+  <input type="number" id="sales-input" placeholder="金額を入力（例：500）">
+  <button onclick="saveSales()">保存</button>
+  <button onclick="loadSales()">読み込み</button>
+
+  <div id="result"></div>
+
+  <script>
+    function saveSales() {
+      const value = document.getElementById('sales-input').value;
+      if (value === '') {
+        alert('金額を入力してください。');
+        return;
+      }
+      localStorage.setItem('sales', value);
+      alert('売上を記録しました！');
+    }
+
+    function loadSales() {
+      const value = localStorage.getItem('sales');
+      if (value === null) {
+        document.getElementById('result').textContent = '保存されたデータがありません。';
+      } else {
+        document.getElementById('result').textContent = '保存済みの売上：¥' + Number(value).toLocaleString();
+      }
+    }
+
+    // ページ読み込み時に自動表示
+    window.onload = function() {
+      loadSales();
+    };
+  </script>
 </body>
 </html>
