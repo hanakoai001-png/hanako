@@ -2,40 +2,78 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>はじめてのHTML</title>
+  <title>売上記録</title>
   <style>
     body {
       background-color: #f0f0f0;
       font-family: sans-serif;
       padding: 20px;
+      max-width: 700px;
+      margin: 0 auto;
     }
     h1 {
       color: green;
     }
-    input[type="number"] {
-      padding: 8px;
+    h2 {
+      color: #333;
+      margin-top: 30px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      font-size: 0.9rem;
+      color: #555;
+      font-weight: bold;
+    }
+    .form-group input {
+      padding: 8px 12px;
       font-size: 1rem;
       border: 1px solid #ccc;
       border-radius: 6px;
-      width: 200px;
     }
     button {
       background-color: green;
       color: white;
       border: none;
       border-radius: 8px;
-      padding: 8px 20px;
+      padding: 10px 24px;
       cursor: pointer;
-      margin-left: 8px;
       font-size: 1rem;
     }
     button:hover {
       background-color: #005500;
     }
-    #result {
-      margin-top: 20px;
-      font-size: 1.2rem;
-      color: #333;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    thead {
+      background-color: green;
+      color: white;
+    }
+    th, td {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 0.95rem;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    tr:hover td {
+      background-color: #f5fff5;
+    }
+    #empty-msg {
+      color: #aaa;
+      margin-top: 12px;
     }
   </style>
 </head>
@@ -43,36 +81,96 @@
   <h1>はじめてのHTML</h1>
   <p>これはテストです</p>
 
-  <h2>今日の売上</h2>
-  <input type="number" id="sales-input" placeholder="金額を入力（例：500）">
+  <h2>売上を記録する</h2>
+  <div class="form-group">
+    <label>商品名</label>
+    <input type="text" id="input-name" placeholder="例：バラ">
+    <label>金額（円）</label>
+    <input type="number" id="input-price" placeholder="例：500">
+    <label>日付</label>
+    <input type="date" id="input-date">
+  </div>
   <button onclick="saveSales()">保存</button>
-  <button onclick="loadSales()">読み込み</button>
 
-  <div id="result"></div>
+  <h2>売上一覧</h2>
+  <div id="empty-msg">まだデータがありません。</div>
+  <table id="sales-table" style="display:none">
+    <thead>
+      <tr>
+        <th>日付</th>
+        <th>商品名</th>
+        <th>金額</th>
+      </tr>
+    </thead>
+    <tbody id="sales-body"></tbody>
+  </table>
 
   <script>
+    const STORAGE_KEY = 'sales_list';
+
+    function loadData() {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    }
+
+    function saveData(data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
     function saveSales() {
-      const value = document.getElementById('sales-input').value;
-      if (value === '') {
-        alert('金額を入力してください。');
+      const name  = document.getElementById('input-name').value.trim();
+      const price = document.getElementById('input-price').value;
+      const date  = document.getElementById('input-date').value;
+
+      if (!name || !price || !date) {
+        alert('商品名・金額・日付をすべて入力してください。');
         return;
       }
-      localStorage.setItem('sales', value);
+
+      const data = loadData();
+      data.push({ name, price: parseInt(price), date });
+      saveData(data);
+
+      document.getElementById('input-name').value  = '';
+      document.getElementById('input-price').value = '';
+      document.getElementById('input-date').value  = '';
+
       alert('売上を記録しました！');
+      renderTable();
     }
 
-    function loadSales() {
-      const value = localStorage.getItem('sales');
-      if (value === null) {
-        document.getElementById('result').textContent = '保存されたデータがありません。';
-      } else {
-        document.getElementById('result').textContent = '保存済みの売上：¥' + Number(value).toLocaleString();
+    function renderTable() {
+      const data = loadData();
+      const tbody = document.getElementById('sales-body');
+      const table = document.getElementById('sales-table');
+      const emptyMsg = document.getElementById('empty-msg');
+
+      if (data.length === 0) {
+        table.style.display = 'none';
+        emptyMsg.style.display = 'block';
+        return;
       }
+
+      table.style.display = 'table';
+      emptyMsg.style.display = 'none';
+
+      // 日付の新しい順に並べる
+      const sorted = [...data].sort((a, b) => b.date.localeCompare(a.date));
+
+      tbody.innerHTML = sorted.map(r => `
+        <tr>
+          <td>${r.date}</td>
+          <td>${r.name}</td>
+          <td>¥${r.price.toLocaleString()}</td>
+        </tr>
+      `).join('');
     }
 
-    // ページ読み込み時に自動表示
-    window.onload = function() {
-      loadSales();
+    // ページ読み込み時に一覧を表示
+    window.onload = function () {
+      // 日付入力欄に今日の日付をセット
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('input-date').value = today;
+      renderTable();
     };
   </script>
 </body>
