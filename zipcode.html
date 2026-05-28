@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>郵便番号検索 | お届け先入力</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+      background: #fdf6f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(180, 100, 120, 0.10);
+      padding: 40px 36px 36px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .card-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .card-header .icon {
+      font-size: 36px;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .card-header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #4a2040;
+      letter-spacing: 0.05em;
+    }
+
+    .card-header p {
+      font-size: 0.8rem;
+      color: #a07080;
+      margin-top: 4px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #6b3a50;
+      margin-bottom: 6px;
+      letter-spacing: 0.03em;
+    }
+
+    label .required {
+      display: inline-block;
+      background: #d4708a;
+      color: #fff;
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      border: 1.5px solid #e8c8d0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 1rem;
+      color: #3a2030;
+      background: #fff9fb;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]::placeholder {
+      color: #c8a0b0;
+    }
+
+    input[type="text"]:focus {
+      border-color: #c05070;
+      box-shadow: 0 0 0 3px rgba(192, 80, 112, 0.12);
+      background: #fff;
+    }
+
+    input[type="text"].error-input {
+      border-color: #e05050;
+    }
+
+    button#searchBtn {
+      padding: 10px 18px;
+      background: #c05070;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    button#searchBtn:hover {
+      background: #a03058;
+    }
+
+    button#searchBtn:active {
+      transform: scale(0.97);
+    }
+
+    button#searchBtn:disabled {
+      background: #d8a0b0;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .hint {
+      font-size: 0.72rem;
+      color: #b08090;
+      margin-top: 5px;
+    }
+
+    /* ローディング */
+    .loading {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      background: #fdf0f4;
+      border-radius: 8px;
+      color: #a05070;
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+    }
+
+    .loading.show {
+      display: flex;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid #e8c0cc;
+      border-top-color: #c05070;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* エラー */
+    .error-msg {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      background: #fff0f0;
+      border: 1px solid #f0c0c0;
+      border-radius: 8px;
+      color: #c03030;
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+    }
+
+    .error-msg.show {
+      display: flex;
+    }
+
+    /* 結果エリア */
+    .result-area {
+      display: none;
+      background: #f8fff8;
+      border: 1.5px solid #b0d8b8;
+      border-radius: 10px;
+      padding: 18px 16px;
+      margin-bottom: 20px;
+    }
+
+    .result-area.show {
+      display: block;
+    }
+
+    .result-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #3a7050;
+      margin-bottom: 8px;
+      letter-spacing: 0.05em;
+    }
+
+    .result-address {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #2a4038;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .btn-use {
+      width: 100%;
+      padding: 10px;
+      background: #4a9060;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      letter-spacing: 0.03em;
+    }
+
+    .btn-use:hover {
+      background: #3a7050;
+    }
+
+    /* 住所入力欄 */
+    .address-fields {
+      display: none;
+    }
+
+    .address-fields.show {
+      display: block;
+    }
+
+    .field-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #6b3a50;
+      margin-bottom: 5px;
+    }
+
+    .address-display {
+      background: #fdf6f0;
+      border: 1.5px solid #e8c8d0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      color: #3a2030;
+      margin-bottom: 12px;
+      min-height: 42px;
+    }
+
+    textarea#banchi {
+      width: 100%;
+      border: 1.5px solid #e8c8d0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      color: #3a2030;
+      background: #fff9fb;
+      outline: none;
+      resize: vertical;
+      min-height: 60px;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    textarea#banchi:focus {
+      border-color: #c05070;
+      box-shadow: 0 0 0 3px rgba(192, 80, 112, 0.12);
+      background: #fff;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px dashed #e8d0d8;
+      margin: 24px 0;
+    }
+
+    .multiple-results {
+      margin-bottom: 12px;
+    }
+
+    .result-item {
+      padding: 10px 12px;
+      border: 1.5px solid #e8c8d0;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #4a2040;
+      background: #fff9fb;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .result-item:hover {
+      background: #fce8f0;
+      border-color: #c05070;
+    }
+
+    .result-item .zip-tag {
+      font-size: 0.72rem;
+      color: #a07080;
+      margin-bottom: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-header">
+    <span class="icon">&#127800;</span>
+    <h1>お届け先住所入力</h1>
+    <p>郵便番号から住所を自動入力できます</p>
+  </div>
+
+  <!-- 郵便番号入力 -->
+  <div class="form-group">
+    <label for="zipInput">郵便番号 <span class="required">必須</span></label>
+    <div class="input-row">
+      <input
+        type="text"
+        id="zipInput"
+        placeholder="例：123-4567 または 1234567"
+        maxlength="8"
+        inputmode="numeric"
+        autocomplete="postal-code"
+      >
+      <button id="searchBtn">
+        <span id="btnIcon">&#128269;</span>
+        <span id="btnText">検索</span>
+      </button>
+    </div>
+    <div class="hint">ハイフンあり・なし、どちらでも入力できます</div>
+  </div>
+
+  <!-- ローディング -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <span>住所を検索中...</span>
+  </div>
+
+  <!-- エラーメッセージ -->
+  <div class="error-msg" id="errorMsg">
+    <span>&#9888;&#65039;</span>
+    <span id="errorText">住所が見つかりませんでした。</span>
+  </div>
+
+  <!-- 複数結果 -->
+  <div class="result-area" id="multipleArea">
+    <div class="result-label">&#10003; 複数の住所が見つかりました。選択してください</div>
+    <div class="multiple-results" id="multipleList"></div>
+  </div>
+
+  <!-- 単一結果 -->
+  <div class="result-area" id="singleResult">
+    <div class="result-label">&#10003; 住所が見つかりました</div>
+    <div class="result-address" id="foundAddress"></div>
+    <button class="btn-use" id="useBtn">この住所を使用する</button>
+  </div>
+
+  <hr class="divider" id="divider" style="display:none;">
+
+  <!-- 住所入力欄（確定後に表示） -->
+  <div class="address-fields" id="addressFields">
+    <div class="form-group" style="margin-bottom:12px;">
+      <div class="field-label">都道府県</div>
+      <div class="address-display" id="dispPref"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <div class="field-label">市区町村・町域</div>
+      <div class="address-display" id="dispCity"></div>
+    </div>
+    <div class="form-group">
+      <label for="banchi">番地・建物名 <span class="required">必須</span></label>
+      <textarea id="banchi" placeholder="例：1丁目2番3号　〇〇マンション101"></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+  const zipInput   = document.getElementById('zipInput');
+  const searchBtn  = document.getElementById('searchBtn');
+  const loading    = document.getElementById('loading');
+  const errorMsg   = document.getElementById('errorMsg');
+  const errorText  = document.getElementById('errorText');
+  const singleResult = document.getElementById('singleResult');
+  const foundAddress = document.getElementById('foundAddress');
+  const useBtn     = document.getElementById('useBtn');
+  const multipleArea = document.getElementById('multipleArea');
+  const multipleList = document.getElementById('multipleList');
+  const addressFields = document.getElementById('addressFields');
+  const divider    = document.getElementById('divider');
+  const dispPref   = document.getElementById('dispPref');
+  const dispCity   = document.getElementById('dispCity');
+
+  let selectedResult = null;
+
+  // ハイフン自動挿入
+  zipInput.addEventListener('input', () => {
+    let val = zipInput.value.replace(/[^\d]/g, '');
+    if (val.length > 7) val = val.slice(0, 7);
+    if (val.length > 3) {
+      zipInput.value = val.slice(0, 3) + '-' + val.slice(3);
+    } else {
+      zipInput.value = val;
+    }
+    clearResults();
+  });
+
+  // Enterキーで検索
+  zipInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doSearch();
+  });
+
+  searchBtn.addEventListener('click', doSearch);
+  useBtn.addEventListener('click', applyAddress);
+
+  function clearResults() {
+    hideAll(loading, errorMsg, singleResult, multipleArea);
+    addressFields.classList.remove('show');
+    divider.style.display = 'none';
+    zipInput.classList.remove('error-input');
+    selectedResult = null;
+  }
+
+  function hideAll(...elements) {
+    elements.forEach(el => el.classList.remove('show'));
+  }
+
+  function showError(msg) {
+    zipInput.classList.add('error-input');
+    errorText.textContent = msg;
+    errorMsg.classList.add('show');
+  }
+
+  async function doSearch() {
+    clearResults();
+
+    const raw = zipInput.value.replace(/-/g, '').trim();
+
+    if (!/^\d{7}$/.test(raw)) {
+      showError('郵便番号は7桁の数字で入力してください（例：1234567）');
+      return;
+    }
+
+    // ローディング表示
+    loading.classList.add('show');
+    searchBtn.disabled = true;
+
+    try {
+      const res = await fetch(
+        `https://zipcloud.ibsnet.co.jp/api/search?zipcode=${raw}`
+      );
+      if (!res.ok) throw new Error('通信エラー');
+
+      const data = await res.json();
+
+      loading.classList.remove('show');
+      searchBtn.disabled = false;
+
+      if (data.status !== 200) {
+        showError('APIエラーが発生しました。しばらく後で再試行してください。');
+        return;
+      }
+
+      if (!data.results || data.results.length === 0) {
+        showError('該当する住所が見つかりませんでした。郵便番号を確認してください。');
+        return;
+      }
+
+      if (data.results.length === 1) {
+        showSingle(data.results[0]);
+      } else {
+        showMultiple(data.results);
+      }
+
+    } catch (err) {
+      loading.classList.remove('show');
+      searchBtn.disabled = false;
+      showError('通信に失敗しました。インターネット接続を確認してください。');
+    }
+  }
+
+  function buildAddress(r) {
+    return `${r.address1}${r.address2}${r.address3}`;
+  }
+
+  function showSingle(r) {
+    selectedResult = r;
+    foundAddress.textContent = buildAddress(r);
+    singleResult.classList.add('show');
+  }
+
+  function showMultiple(results) {
+    multipleList.innerHTML = '';
+    results.forEach(r => {
+      const item = document.createElement('div');
+      item.className = 'result-item';
+      item.innerHTML = `<div class="zip-tag">〒${r.zipcode.slice(0,3)}-${r.zipcode.slice(3)}</div>${buildAddress(r)}`;
+      item.addEventListener('click', () => {
+        hideAll(multipleArea);
+        showSingle(r);
+      });
+      multipleList.appendChild(item);
+    });
+    multipleArea.classList.add('show');
+  }
+
+  function applyAddress() {
+    if (!selectedResult) return;
+    dispPref.textContent = selectedResult.address1;
+    dispCity.textContent = selectedResult.address2 + selectedResult.address3;
+    singleResult.classList.remove('show');
+    divider.style.display = 'block';
+    addressFields.classList.add('show');
+    document.getElementById('banchi').focus();
+  }
+</script>
+
+</body>
+</html>
