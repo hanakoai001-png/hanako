@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ToDoリスト</title>
+  <style>
+    /* ── リセット & ベース ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Helvetica Neue", Arial, "Hiragino Sans", sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 48px 16px;
+    }
+
+    /* ── カード ── */
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.10);
+      width: 100%;
+      max-width: 560px;
+      padding: 36px 32px;
+      height: fit-content;
+    }
+
+    /* ── ヘッダー ── */
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: #718096;
+      margin-bottom: 28px;
+    }
+
+    /* ── 入力フォーム ── */
+    .add-form {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    .add-form input[type="text"] {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      color: #2d3748;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .add-form input[type="text"]:focus {
+      border-color: #667eea;
+    }
+    .add-form input[type="text"]::placeholder { color: #a0aec0; }
+    .btn-add {
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s;
+    }
+    .btn-add:hover { opacity: 0.88; }
+
+    /* ── セクション見出し ── */
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #a0aec0;
+      margin-bottom: 10px;
+      margin-top: 4px;
+    }
+
+    /* ── タスク一覧 ── */
+    .todo-list { list-style: none; }
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      background: #f7fafc;
+      border: 1px solid #edf2f7;
+      transition: background 0.15s;
+    }
+    .todo-item:hover { background: #edf2f7; }
+    .todo-item.done-item { opacity: 0.55; }
+
+    /* チェックボタン */
+    .btn-check {
+      flex-shrink: 0;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      border: 2px solid #cbd5e0;
+      background: #fff;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, border-color 0.2s;
+      text-decoration: none;
+      font-size: 0.8rem;
+      color: transparent;
+    }
+    .btn-check:hover { border-color: #667eea; }
+    .todo-item.done-item .btn-check {
+      background: #48bb78;
+      border-color: #48bb78;
+      color: #fff;
+    }
+
+    /* タスクテキスト */
+    .todo-text {
+      flex: 1;
+      font-size: 0.95rem;
+      color: #2d3748;
+      word-break: break-word;
+    }
+    .todo-item.done-item .todo-text {
+      text-decoration: line-through;
+      color: #a0aec0;
+    }
+
+    /* 日時 */
+    .todo-date {
+      font-size: 0.72rem;
+      color: #a0aec0;
+      white-space: nowrap;
+    }
+
+    /* 削除ボタン */
+    .btn-delete {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: #cbd5e0;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-delete:hover { background: #fed7d7; color: #e53e3e; }
+
+    /* ── 空メッセージ ── */
+    .empty {
+      text-align: center;
+      padding: 32px 0;
+      color: #a0aec0;
+      font-size: 0.9rem;
+    }
+
+    /* ── フッター集計 ── */
+    .footer {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #edf2f7;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #a0aec0;
+    }
+    .footer span { font-weight: 600; color: #718096; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <!-- ヘッダー -->
+    <h1>&#x1F4DD; ToDoリスト</h1>
+    <p class="subtitle">タスクを管理して、毎日を整理しよう</p>
+
+    <!-- 追加フォーム -->
+    <form class="add-form" action="/add" method="POST">
+      <input type="text" name="content" placeholder="新しいタスクを入力..." required autocomplete="off" />
+      <button type="submit" class="btn-add">+ 追加</button>
+    </form>
+
+    <!-- 未完了タスク -->
+    {% set undone = todos | selectattr("done", "equalto", 0) | list %}
+    {% set done   = todos | selectattr("done", "equalto", 1) | list %}
+
+    <p class="section-label">未完了 ({{ undone | length }})</p>
+    <ul class="todo-list">
+      {% for todo in undone %}
+      <li class="todo-item">
+        <a class="btn-check" href="/toggle/{{ todo.id }}" title="完了にする"></a>
+        <span class="todo-text">{{ todo.content }}</span>
+        <span class="todo-date">{{ todo.created_at }}</span>
+        <a class="btn-delete" href="/delete/{{ todo.id }}" title="削除"
+           onclick="return confirm('削除しますか？')">&#x2715;</a>
+      </li>
+      {% else %}
+      <li class="empty">未完了のタスクはありません &#x1F389;</li>
+      {% endfor %}
+    </ul>
+
+    <!-- 完了済みタスク -->
+    {% if done %}
+    <p class="section-label" style="margin-top:24px;">完了済み ({{ done | length }})</p>
+    <ul class="todo-list">
+      {% for todo in done %}
+      <li class="todo-item done-item">
+        <a class="btn-check" href="/toggle/{{ todo.id }}" title="未完了に戻す">&#x2713;</a>
+        <span class="todo-text">{{ todo.content }}</span>
+        <span class="todo-date">{{ todo.created_at }}</span>
+        <a class="btn-delete" href="/delete/{{ todo.id }}" title="削除"
+           onclick="return confirm('削除しますか？')">&#x2715;</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <!-- フッター -->
+    <div class="footer">
+      <div>合計 <span>{{ todos | length }}</span> 件</div>
+      <div>完了 <span>{{ done | length }}</span> 件 / 未完了 <span>{{ undone | length }}</span> 件</div>
+    </div>
+  </div>
+</body>
+</html>
