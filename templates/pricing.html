@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>料金プラン</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Helvetica Neue", Arial, "Hiragino Sans", sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+    }
+
+    /* ── ナビバー ── */
+    .navbar {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+    .navbar-brand { color: #fff; font-size: 1.1rem; font-weight: 700; text-decoration: none; }
+    .navbar-right { display: flex; align-items: center; gap: 12px; }
+    .navbar-user  { color: rgba(255,255,255,0.9); font-size: 0.875rem; }
+    .btn-nav {
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .btn-nav:hover { background: rgba(255,255,255,0.3); }
+
+    /* ── コンテンツ ── */
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 52px 20px 60px;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .page-header h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #1a202c;
+      margin-bottom: 10px;
+    }
+    .page-header p { color: #718096; font-size: 1rem; line-height: 1.6; }
+
+    /* ── フラッシュ ── */
+    .flash {
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.875rem;
+      margin-bottom: 24px;
+      font-weight: 500;
+      text-align: center;
+    }
+    .flash.error   { background: #fff5f5; color: #c53030; border: 1px solid #fed7d7; }
+    .flash.warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .flash.success { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; }
+
+    /* ── プランカード ── */
+    .plans-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .plan-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 36px 32px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+      border: 2px solid transparent;
+      position: relative;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .plan-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.12); }
+
+    .plan-card.current-free  { border-color: #e2e8f0; }
+    .plan-card.featured      { border-color: #667eea; }
+
+    .badge {
+      position: absolute;
+      top: -13px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 4px 14px;
+      border-radius: 20px;
+      white-space: nowrap;
+      letter-spacing: 0.04em;
+    }
+
+    .plan-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #4a5568;
+      margin-bottom: 6px;
+    }
+    .plan-price {
+      font-size: 2.4rem;
+      font-weight: 800;
+      color: #1a202c;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .plan-price span { font-size: 1rem; font-weight: 500; color: #718096; }
+    .plan-desc {
+      font-size: 0.85rem;
+      color: #a0aec0;
+      margin-bottom: 24px;
+    }
+
+    .feature-list { list-style: none; margin-bottom: 28px; }
+    .feature-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      font-size: 0.9rem;
+      color: #4a5568;
+      border-bottom: 1px solid #f7fafc;
+    }
+    .feature-list li:last-child { border-bottom: none; }
+    .check { color: #48bb78; font-weight: 700; font-size: 1rem; }
+    .cross { color: #cbd5e0; font-size: 1rem; }
+
+    /* ── ボタン ── */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-align: center;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.2s, transform 0.1s;
+      text-decoration: none;
+    }
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+
+    .btn-disabled {
+      background: #edf2f7;
+      color: #a0aec0;
+      cursor: default;
+    }
+
+    .btn-current {
+      background: #f0fff4;
+      color: #276749;
+      border: 2px solid #c6f6d5;
+      cursor: default;
+    }
+
+    /* ── テスト用カード案内 ── */
+    .test-guide {
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px 32px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+      border-left: 4px solid #667eea;
+    }
+    .test-guide h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .test-guide table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .test-guide th {
+      text-align: left;
+      color: #a0aec0;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 6px 12px 6px 0;
+      border-bottom: 1px solid #edf2f7;
+    }
+    .test-guide td {
+      padding: 8px 12px 8px 0;
+      color: #4a5568;
+      border-bottom: 1px solid #f7fafc;
+      font-family: monospace;
+    }
+    .test-guide td:first-child { font-weight: 600; color: #2d3748; }
+
+    @media (max-width: 600px) {
+      .plans-grid { grid-template-columns: 1fr; }
+      .plan-card  { padding: 28px 24px; }
+      .navbar-user { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <a href="/dashboard" class="navbar-brand">&#x1F3E0; マイページ</a>
+    <div class="navbar-right">
+      <span class="navbar-user">{{ user.username }} さん</span>
+      <a href="/dashboard" class="btn-nav">ダッシュボード</a>
+      <a href="/logout" class="btn-nav">ログアウト</a>
+    </div>
+  </nav>
+
+  <div class="container">
+
+    <div class="page-header">
+      <h1>&#x1F4B3; 料金プラン</h1>
+      <p>シンプルな料金体系。<br>いつでもキャンセル可能です。</p>
+    </div>
+
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+
+    <!-- プランカード -->
+    <div class="plans-grid">
+
+      <!-- フリープラン -->
+      <div class="plan-card {% if user.plan == 'free' %}current-free{% endif %}">
+        <div class="plan-name">フリープラン</div>
+        <div class="plan-price">&#xa5;0 <span>/ 月</span></div>
+        <div class="plan-desc">まずは無料でお試し</div>
+        <ul class="feature-list">
+          <li><span class="check">&#x2713;</span> 基本機能へのアクセス</li>
+          <li><span class="check">&#x2713;</span> アカウント作成・ログイン</li>
+          <li><span class="cross">&#x2715;</span> プレミアム機能</li>
+          <li><span class="cross">&#x2715;</span> 優先サポート</li>
+          <li><span class="cross">&#x2715;</span> データエクスポート</li>
+        </ul>
+        {% if user.plan == 'free' %}
+        <div class="btn btn-current">&#x2705; 現在のプラン</div>
+        {% else %}
+        <div class="btn btn-disabled">ダウングレード</div>
+        {% endif %}
+      </div>
+
+      <!-- プレミアムプラン -->
+      <div class="plan-card featured">
+        <div class="badge">&#x2B50; おすすめ</div>
+        <div class="plan-name">プレミアムプラン</div>
+        <div class="plan-price">&#xa5;{{ monthly_price }} <span>/ 月</span></div>
+        <div class="plan-desc">全機能が使い放題</div>
+        <ul class="feature-list">
+          <li><span class="check">&#x2713;</span> 基本機能へのアクセス</li>
+          <li><span class="check">&#x2713;</span> アカウント作成・ログイン</li>
+          <li><span class="check">&#x2713;</span> プレミアム機能すべて</li>
+          <li><span class="check">&#x2713;</span> 優先サポート</li>
+          <li><span class="check">&#x2713;</span> データエクスポート</li>
+        </ul>
+        {% if user.plan == 'paid' %}
+        <div class="btn btn-current">&#x2705; 現在のプラン</div>
+        {% else %}
+        <form action="/create-checkout-session" method="POST">
+          <button type="submit" class="btn btn-primary">
+            &#x1F680; 今すぐアップグレード
+          </button>
+        </form>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- テスト用クレジットカード案内 -->
+    <div class="test-guide">
+      <h3>&#x1F9EA; テスト用クレジットカード（Stripeテストモード）</h3>
+      <table>
+        <tr>
+          <th>カード番号</th>
+          <th>有効期限</th>
+          <th>CVC</th>
+          <th>説明</th>
+        </tr>
+        <tr>
+          <td>4242 4242 4242 4242</td>
+          <td>任意の未来の日付</td>
+          <td>任意の3桁</td>
+          <td>決済成功</td>
+        </tr>
+        <tr>
+          <td>4000 0000 0000 0002</td>
+          <td>任意の未来の日付</td>
+          <td>任意の3桁</td>
+          <td>カード拒否</td>
+        </tr>
+        <tr>
+          <td>4000 0025 0000 3155</td>
+          <td>任意の未来の日付</td>
+          <td>任意の3桁</td>
+          <td>3Dセキュア認証</td>
+        </tr>
+      </table>
+    </div>
+
+  </div>
+
+</body>
+</html>

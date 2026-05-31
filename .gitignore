@@ -1,0 +1,16 @@
+# 環境変数（APIキーを含むため絶対にコミットしない）
+.env
+
+# SQLiteデータベース
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db

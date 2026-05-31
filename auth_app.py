@@ -3,16 +3,29 @@ import os
 import sqlite3
 import hashlib
 import secrets
+from datetime import datetime
 from pathlib import Path
+from functools import wraps
+
 from flask import (
     Flask, render_template, request, redirect,
-    url_for, session, flash
+    url_for, session, flash, jsonify
 )
+from dotenv import load_dotenv
+import stripe
+
+# ─── 環境変数読み込み ──────────────────────────────────
+load_dotenv()
 
 sys.stdout.reconfigure(encoding="utf-8")
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
+
+# Stripe設定
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLIC_KEY = os.environ.get("STRIPE_PUBLIC_KEY", "")
+MONTHLY_PRICE = 980  # 円
 
 DB_PATH = Path(__file__).parent / "users.db"
 
@@ -36,14 +49,29 @@ def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                username   TEXT    NOT NULL UNIQUE,
-                email      TEXT    NOT NULL UNIQUE,
-                password   TEXT    NOT NULL,
-                salt       TEXT    NOT NULL,
-                created_at TEXT    NOT NULL
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                username            TEXT    NOT NULL UNIQUE,
+                email               TEXT    NOT NULL UNIQUE,
+                password            TEXT    NOT NULL,
+                salt                TEXT    NOT NULL,
+                plan                TEXT    NOT NULL DEFAULT 'free',
+                stripe_customer_id  TEXT,
+                stripe_subscription_id TEXT,
+                plan_started_at     TEXT,
+                created_at          TEXT    NOT NULL
             )
         """)
+        # 既存テーブルへのカラム追加（マイグレーション）
+        existing = [row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
+        migrations = {
+            "plan":                    "TEXT NOT NULL DEFAULT 'free'",
+            "stripe_customer_id":      "TEXT",
+            "stripe_subscription_id":  "TEXT",
+            "plan_started_at":         "TEXT",
+        }
+        for col, definition in migrations.items():
+            if col not in existing:
+                conn.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
         conn.commit()
 
 
@@ -53,14 +81,27 @@ def get_db():
     return conn
 
 
-# ─── ログイン必須デコレータ ────────────────────────────
+# ─── デコレータ ───────────────────────────────────────
 def login_required(f):
-    from functools import wraps
     @wraps(f)
     def decorated(*args, **kwargs):
         if "user_id" not in session:
             flash("ログインが必要です。", "warning")
             return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def paid_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        with get_db() as conn:
+            user = conn.execute(
+                "SELECT plan FROM users WHERE id = ?", (session["user_id"],)
+            ).fetchone()
+        if not user or user["plan"] != "paid":
+            flash("この機能は有料プランのみご利用いただけます。", "warning")
+            return redirect(url_for("pricing"))
         return f(*args, **kwargs)
     return decorated
 
@@ -85,7 +126,6 @@ def register():
         password = request.form.get("password", "")
         confirm  = request.form.get("confirm", "")
 
-        # バリデーション
         if not username or not email or not password:
             flash("すべての項目を入力してください。", "error")
             return render_template("register.html")
@@ -100,7 +140,6 @@ def register():
             return render_template("register.html")
 
         hashed, salt = hash_password(password)
-        from datetime import datetime
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         try:
@@ -140,8 +179,8 @@ def login():
             ).fetchone()
 
         if user and verify_password(password, user["password"], user["salt"]):
-            session["user_id"]   = user["id"]
-            session["username"]  = user["username"]
+            session["user_id"]  = user["id"]
+            session["username"] = user["username"]
             flash(f"おかえりなさい、{user['username']}さん！", "success")
             return redirect(url_for("dashboard"))
         else:
@@ -169,6 +208,137 @@ def logout():
     session.clear()
     flash(f"{username}さん、またね！", "info")
     return redirect(url_for("login"))
+
+
+# ─── 料金プラン画面 ────────────────────────────────────
+@app.route("/pricing")
+@login_required
+def pricing():
+    with get_db() as conn:
+        user = conn.execute(
+            "SELECT * FROM users WHERE id = ?", (session["user_id"],)
+        ).fetchone()
+    return render_template(
+        "pricing.html",
+        user=user,
+        stripe_public_key=STRIPE_PUBLIC_KEY,
+        monthly_price=MONTHLY_PRICE
+    )
+
+
+# ─── Stripe決済セッション作成 ─────────────────────────
+@app.route("/create-checkout-session", methods=["POST"])
+@login_required
+def create_checkout_session():
+    if not stripe.api_key or stripe.api_key == "":
+        flash("Stripe APIキーが設定されていません。.envファイルを確認してください。", "error")
+        return redirect(url_for("pricing"))
+
+    with get_db() as conn:
+        user = conn.execute(
+            "SELECT * FROM users WHERE id = ?", (session["user_id"],)
+        ).fetchone()
+
+    try:
+        # Stripe顧客を作成または取得
+        customer_id = user["stripe_customer_id"]
+        if not customer_id:
+            customer = stripe.Customer.create(
+                email=user["email"],
+                name=user["username"],
+            )
+            customer_id = customer.id
+            with get_db() as conn:
+                conn.execute(
+                    "UPDATE users SET stripe_customer_id = ? WHERE id = ?",
+                    (customer_id, user["id"])
+                )
+                conn.commit()
+
+        # Checkoutセッション作成
+        checkout_session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {
+                    "currency": "jpy",
+                    "unit_amount": MONTHLY_PRICE,
+                    "recurring": {"interval": "month"},
+                    "product_data": {
+                        "name": "プレミアムプラン",
+                        "description": "月額980円・全機能使い放題",
+                    },
+                },
+                "quantity": 1,
+            }],
+            mode="subscription",
+            success_url=request.host_url + "payment/success?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=request.host_url + "pricing",
+        )
+        return redirect(checkout_session.url, code=303)
+
+    except stripe.StripeError as e:
+        flash(f"決済エラー: {str(e)}", "error")
+        return redirect(url_for("pricing"))
+
+
+# ─── 決済成功コールバック ──────────────────────────────
+@app.route("/payment/success")
+@login_required
+def payment_success():
+    session_id = request.args.get("session_id")
+    if not session_id:
+        return redirect(url_for("dashboard"))
+
+    try:
+        checkout_session = stripe.checkout.Session.retrieve(session_id)
+        subscription_id  = checkout_session.get("subscription")
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        with get_db() as conn:
+            conn.execute(
+                "UPDATE users SET plan = 'paid', stripe_subscription_id = ?,"
+                " plan_started_at = ? WHERE id = ?",
+                (subscription_id, now, session["user_id"])
+            )
+            conn.commit()
+
+        flash("有料プランへのアップグレードが完了しました！", "success")
+
+    except stripe.StripeError as e:
+        flash(f"確認エラー: {str(e)}", "error")
+
+    return redirect(url_for("dashboard"))
+
+
+# ─── サブスクリプション解約 ───────────────────────────
+@app.route("/cancel-subscription", methods=["POST"])
+@login_required
+def cancel_subscription():
+    with get_db() as conn:
+        user = conn.execute(
+            "SELECT * FROM users WHERE id = ?", (session["user_id"],)
+        ).fetchone()
+
+    if not user["stripe_subscription_id"]:
+        flash("有効なサブスクリプションが見つかりません。", "error")
+        return redirect(url_for("dashboard"))
+
+    try:
+        stripe.Subscription.cancel(user["stripe_subscription_id"])
+        with get_db() as conn:
+            conn.execute(
+                "UPDATE users SET plan = 'free', stripe_subscription_id = NULL,"
+                " plan_started_at = NULL WHERE id = ?",
+                (session["user_id"],)
+            )
+            conn.commit()
+        flash("サブスクリプションを解約しました。", "info")
+
+    except stripe.StripeError as e:
+        flash(f"解約エラー: {str(e)}", "error")
+
+    return redirect(url_for("dashboard"))
 
 
 # ─── 起動 ──────────────────────────────────────────────
