@@ -14,8 +14,9 @@ from flask import (
 from dotenv import load_dotenv
 import stripe
 
-# ─── 環境変数読み込み ──────────────────────────────────
-load_dotenv()
+# ─── 環境変数読み込み（明示パス指定） ────────────────────
+ENV_PATH = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=ENV_PATH, override=True)
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -23,8 +24,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
 # Stripe設定
-stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
-STRIPE_PUBLIC_KEY = os.environ.get("STRIPE_PUBLIC_KEY", "")
+stripe.api_key     = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+STRIPE_PUBLIC_KEY  = os.environ.get("STRIPE_PUBLIC_KEY", "").strip()
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
 MONTHLY_PRICE = 980  # 円
 
 DB_PATH = Path(__file__).parent / "users.db"
@@ -226,11 +228,44 @@ def pricing():
     )
 
 
+# ─── Stripe接続チェック（診断用） ────────────────────
+@app.route("/stripe-status")
+@login_required
+def stripe_status():
+    # 毎回 .env を再読込して最新キーを取得
+    load_dotenv(dotenv_path=ENV_PATH, override=True)
+    current_key = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+    stripe.api_key = current_key  # グローバルキーも更新
+
+    result = {
+        "key_set":    bool(current_key),
+        "key_prefix": current_key[:12] + "..." if current_key else "未設定",
+        "key_length": len(current_key),
+        "key_suffix": current_key[-6:] if current_key else "",
+    }
+    try:
+        stripe.Balance.retrieve()
+        result["connected"] = True
+        result["message"]   = "Stripe API 接続成功"
+    except stripe.AuthenticationError as e:
+        result["connected"] = False
+        result["message"]   = f"認証失敗: {e.user_message}"
+        result["hint"]      = "Stripeダッシュボード → Developers → API keys でキーを確認してください"
+    except Exception as e:
+        result["connected"] = False
+        result["message"]   = str(e)
+    return jsonify(result)
+
+
 # ─── Stripe決済セッション作成 ─────────────────────────
 @app.route("/create-checkout-session", methods=["POST"])
 @login_required
 def create_checkout_session():
-    if not stripe.api_key or stripe.api_key == "":
+    # 毎回 .env を再読込
+    load_dotenv(dotenv_path=ENV_PATH, override=True)
+    stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+
+    if not stripe.api_key:
         flash("Stripe APIキーが設定されていません。.envファイルを確認してください。", "error")
         return redirect(url_for("pricing"))
 
@@ -246,6 +281,7 @@ def create_checkout_session():
             customer = stripe.Customer.create(
                 email=user["email"],
                 name=user["username"],
+                metadata={"user_id": str(user["id"])},
             )
             customer_id = customer.id
             with get_db() as conn:
@@ -256,6 +292,7 @@ def create_checkout_session():
                 conn.commit()
 
         # Checkoutセッション作成
+        base_url = request.host_url.rstrip("/")
         checkout_session = stripe.checkout.Session.create(
             customer=customer_id,
             payment_method_types=["card"],
@@ -272,13 +309,22 @@ def create_checkout_session():
                 "quantity": 1,
             }],
             mode="subscription",
-            success_url=request.host_url + "payment/success?session_id={CHECKOUT_SESSION_ID}",
-            cancel_url=request.host_url + "pricing",
+            metadata={"user_id": str(session["user_id"])},
+            success_url=f"{base_url}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{base_url}/pricing",
         )
         return redirect(checkout_session.url, code=303)
 
+    except stripe.AuthenticationError:
+        flash(
+            "Stripe APIキーが無効です。"
+            " Stripeダッシュボード（stripe.com）→ Developers → API keys"
+            " でシークレットキーを確認し、.envを更新してください。",
+            "error"
+        )
+        return redirect(url_for("pricing"))
     except stripe.StripeError as e:
-        flash(f"決済エラー: {str(e)}", "error")
+        flash(f"決済エラー: {e.user_message}", "error")
         return redirect(url_for("pricing"))
 
 
@@ -291,24 +337,79 @@ def payment_success():
         return redirect(url_for("dashboard"))
 
     try:
-        checkout_session = stripe.checkout.Session.retrieve(session_id)
-        subscription_id  = checkout_session.get("subscription")
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        checkout_session = stripe.checkout.Session.retrieve(
+            session_id,
+            expand=["subscription"]
+        )
+        # 支払いステータス確認（Stripeオブジェクトは属性アクセス）
+        payment_status  = checkout_session.payment_status
+        sub             = checkout_session.subscription
+        subscription_id = sub.id if hasattr(sub, "id") else sub
 
-        with get_db() as conn:
-            conn.execute(
-                "UPDATE users SET plan = 'paid', stripe_subscription_id = ?,"
-                " plan_started_at = ? WHERE id = ?",
-                (subscription_id, now, session["user_id"])
-            )
-            conn.commit()
-
-        flash("有料プランへのアップグレードが完了しました！", "success")
+        if payment_status in ("paid", "no_payment_required") or subscription_id:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with get_db() as conn:
+                conn.execute(
+                    "UPDATE users SET plan = 'paid', stripe_subscription_id = ?,"
+                    " plan_started_at = ? WHERE id = ?",
+                    (subscription_id, now, session["user_id"])
+                )
+                conn.commit()
+            flash("🎉 有料プランへのアップグレードが完了しました！", "success")
+        else:
+            flash("決済が完了していません。もう一度お試しください。", "warning")
 
     except stripe.StripeError as e:
-        flash(f"確認エラー: {str(e)}", "error")
+        flash(f"確認エラー: {e.user_message}", "error")
 
     return redirect(url_for("dashboard"))
+
+
+# ─── Stripe Webhook（本番用・自動プラン更新） ──────────
+@app.route("/webhook/stripe", methods=["POST"])
+def stripe_webhook():
+    payload   = request.get_data()
+    sig_header = request.headers.get("Stripe-Signature", "")
+
+    try:
+        if STRIPE_WEBHOOK_SECRET:
+            event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+        else:
+            event = stripe.Event.construct_from(
+                __import__("json").loads(payload), stripe.api_key
+            )
+    except (ValueError, stripe.SignatureVerificationError):
+        return "Bad Request", 400
+
+    # サブスクリプション有効化
+    if event["type"] in ("customer.subscription.created", "invoice.payment_succeeded"):
+        data = event["data"]["object"]
+        customer_id = data.customer
+        sub_id = data.id if event["type"].startswith("customer") else data.subscription
+        if customer_id:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with get_db() as conn:
+                conn.execute(
+                    "UPDATE users SET plan = 'paid', stripe_subscription_id = ?,"
+                    " plan_started_at = ? WHERE stripe_customer_id = ?",
+                    (sub_id, now, customer_id)
+                )
+                conn.commit()
+
+    # サブスクリプション解約・失効
+    elif event["type"] in ("customer.subscription.deleted", "invoice.payment_failed"):
+        data = event["data"]["object"]
+        customer_id = data.customer
+        if customer_id:
+            with get_db() as conn:
+                conn.execute(
+                    "UPDATE users SET plan = 'free', stripe_subscription_id = NULL,"
+                    " plan_started_at = NULL WHERE stripe_customer_id = ?",
+                    (customer_id,)
+                )
+                conn.commit()
+
+    return "OK", 200
 
 
 # ─── サブスクリプション解約 ───────────────────────────
@@ -335,8 +436,10 @@ def cancel_subscription():
             conn.commit()
         flash("サブスクリプションを解約しました。", "info")
 
+    except stripe.AuthenticationError:
+        flash("Stripe APIキーが無効です。.envファイルを確認してください。", "error")
     except stripe.StripeError as e:
-        flash(f"解約エラー: {str(e)}", "error")
+        flash(f"解約エラー: {e.user_message}", "error")
 
     return redirect(url_for("dashboard"))
 
