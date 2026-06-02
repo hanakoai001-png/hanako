@@ -65,8 +65,8 @@ def ask_claude(user_message: str) -> str:
 
 
 # ─── LINE Webhook エンドポイント ───────────────────────
-@app.route("/webhook/line", methods=["POST"])
-def line_webhook():
+@app.route("/callback", methods=["POST"])
+def callback():
     signature = request.headers.get("X-Line-Signature", "")
     body      = request.get_data(as_text=True)
 
@@ -120,5 +120,5 @@ if __name__ == "__main__":
     port  = int(os.environ.get("PORT", 5002))
     debug = os.environ.get("FLASK_ENV") != "production"
     print(f"LINE Bot サーバー起動中: http://127.0.0.1:{port}")
-    print(f"Webhook URL: http://127.0.0.1:{port}/webhook/line")
+    print(f"Webhook URL: http://127.0.0.1:{port}/callback")
     app.run(host="0.0.0.0", port=port, debug=debug)
