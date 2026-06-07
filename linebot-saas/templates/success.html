@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>申し込み完了 | LINE Bot SaaS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      background: #f5f7fa;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+      padding: 56px 48px;
+      text-align: center;
+      max-width: 480px;
+      width: 100%;
+    }
+    .icon { font-size: 4rem; margin-bottom: 20px; }
+    h1 {
+      font-size: 1.6rem;
+      color: #00b900;
+      margin-bottom: 16px;
+    }
+    p {
+      font-size: 1rem;
+      color: #555;
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+    .btn {
+      display: inline-block;
+      margin-top: 28px;
+      background: #00b900;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      padding: 14px 40px;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .btn:hover { background: #009a00; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🎉</div>
+    <h1>申し込みありがとうございます！</h1>
+    <p>ご登録が完了しました。</p>
+    <p>ご登録のメールアドレスに確認メールをお送りしましたのでご確認ください。</p>
+    <p>LINE Bot の設定方法については、メール内のガイドをご参照ください。</p>
+    <a href="/" class="btn">トップページへ戻る</a>
+  </div>
+</body>
+</html>
