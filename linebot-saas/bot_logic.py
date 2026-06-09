@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import anthropic
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -74,8 +75,11 @@ SYSTEM_PROMPT = """あなたは花屋はなとくの受付スタッフです。
 - 「お問い合わせください」だけで終わる返答"""
 
 
+JST = ZoneInfo("Asia/Tokyo")
+
+
 def is_business_hours() -> bool:
-    now = datetime.now()
+    now = datetime.now(JST)
     return 10 <= now.hour < 19
 
 
